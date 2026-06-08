@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>2025 Book Character Catwalk Finale Vote</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold text-center mb-6">2026 Book Character Catwalk Finale Vote</h1>
+
+    <div id="vote-buttons" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8"></div>
+
+    <h2 class="text-xl font-semibold mb-2">Top 5 Results</h2>
+    <canvas id="resultsChart" height="100"></canvas>
+  </div>
+
+  <script>
+    const labels = Array.from({ length: 25 }, (_, i) => `No. ${i + 1}`);
+    const voteButtonsContainer = document.getElementById('vote-buttons');
+    let ws;
+
+    // Chart.js setup
+    const ctx = document.getElementById('resultsChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Votes',
+          data: [],
+          backgroundColor: 'rgba(59, 130, 246, 0.7)',
+          borderColor: 'rgba(59, 130, 246, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, precision: 0 }
+        }
+      }
+    });
+
+    function updateChart(top5) {
+      chart.data.labels = top5.map(item => item.label);
+      chart.data.datasets[0].data = top5.map(item => item.count);
+      chart.update();
+    }
+
+    function connectWebSocket() {
+      const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${protocol}://${location.host}`);
+
+      ws.onopen = () => {
+        console.log('✅ WebSocket connected');
+      };
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'top5') {
+          updateChart(msg.data);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('🔌 WebSocket disconnected. Reconnecting...');
+        setTimeout(connectWebSocket, 2000);
+      };
+    }
+
+    // Build 25 vote buttons
+    labels.forEach((label, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.className = "bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded shadow transition";
+      btn.onclick = () => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'vote', index: i }));
+          // Feedback
+          btn.classList.remove("bg-blue-600");
+          btn.classList.add("bg-green-600");
+          setTimeout(() => {
+            btn.classList.remove("bg-green-600");
+            btn.classList.add("bg-blue-600");
+          }, 500);
+        } else {
+          alert("WebSocket not connected. Please wait...");
+        }
+      };
+      voteButtonsContainer.appendChild(btn);
+    });
+
+    connectWebSocket();
+  </script>
+</body>
+</html>
